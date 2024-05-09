@@ -1,6 +1,6 @@
 # Projeto -> DeepVit Mnist
 
-# imports
+# Imports
 import tensorflow as tf
 from vit import ViT
 
