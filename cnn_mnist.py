@@ -3,16 +3,29 @@
 # Imports
 import tensorflow as tf
 import matplotlib.pyplot as plt
+from func_reader import *
 
 
 def load_data():
-    (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+    dataset_size = 60000
+    dataset_size_test = 10000
+
+    dataset_images_train = read_dataset_images_train(dataset_size)
+    dataset_labels_train = read_dataset_labels_train(dataset_size)
+    dataset_images_test = read_dataset_images_test(dataset_size_test)
+    dataset_labels_test = read_dataset_labels_test(dataset_size_test)
+
+    return (
+        dataset_images_train,
+        dataset_labels_train,
+        dataset_images_test,
+        dataset_labels_test,
+    )
+
+
+def visualize_data(images_train, labels_train):
     classes = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
-    return (x_train, y_train), (x_test, y_test), classes
-
-
-def visualize_data(x_train, y_train, classes):
     plt.figure(figsize=(10, 10))
 
     for i in range(9):
@@ -20,20 +33,22 @@ def visualize_data(x_train, y_train, classes):
         plt.xticks([])
         plt.yticks([])
         plt.grid(False)
-        plt.imshow(tf.squeeze(x_train[i]))
-        plt.xlabel(classes[y_train[i]])
+        plt.imshow(tf.squeeze(images_train[i]))
+        plt.xlabel(classes[labels_train[i]])
     plt.show()
 
 
 def prepare_data():
-    (x_train, y_train), (x_test, y_test), classes = load_data()
+    dataset_images_train, labels_train, dataset_images_test, labels_test = load_data()
 
-    x_train = x_train.astype("float32") / 255
-    x_test = x_test.astype("float32") / 255
-    x_train = x_train.reshape(x_train.shape[0], 28, 28, 1)
-    x_test = x_test.reshape(x_test.shape[0], 28, 28, 1)
+    images_train = dataset_images_train.astype("float32") / 255
+    images_test = dataset_images_test.astype("float32") / 255
+    images_train = dataset_images_train.reshape(
+        dataset_images_train.shape[0], 28, 28, 1
+    )
+    images_test = dataset_images_test.reshape(dataset_images_test.shape[0], 28, 28, 1)
 
-    return x_train, y_train, x_test, y_test, classes
+    return images_train, labels_train, images_test, labels_test
 
 
 def create_cnn(num_classes):
@@ -70,7 +85,14 @@ def create_cnn(num_classes):
 
 
 def compile_and_fit(
-    model, x_train, y_train, x_test, y_test, batch_size, epochs, apply_data_augmentation
+    model,
+    images_train,
+    labels_train,
+    images_test,
+    labels_test,
+    batch_size,
+    epochs,
+    apply_data_augmentation,
 ):
     model.compile(
         optimizer=tf.keras.optimizers.Adam(0.001),
@@ -82,11 +104,11 @@ def compile_and_fit(
         print("No data augmentation")
 
         history = model.fit(
-            x_train,
-            y_train,
+            images_train,
+            labels_train,
             batch_size=batch_size,
             epochs=epochs,
-            validation_data=(x_test, y_test),
+            validation_data=(images_test, labels_test),
             shuffle=True,
         )
     else:
@@ -102,21 +124,22 @@ if __name__ == "__main__":
     apply_data_augmentation = False
     num_predictions = 20
 
-    x_train, y_train, x_test, y_test, classes = prepare_data()
+    images_train, labels_train, images_test, labels_test = prepare_data()
+    visualize_data(images_train, labels_train)
 
     cnn_model = create_cnn(num_classes)
 
     cnn_model, history = compile_and_fit(
         cnn_model,
-        x_train,
-        y_train,
-        x_test,
-        y_test,
+        images_train,
+        labels_train,
+        images_test,
+        labels_test,
         batch_size,
         epochs,
         apply_data_augmentation,
     )
 
-    score = cnn_model.evaluate(x_test, y_test)
+    score = cnn_model.evaluate(images_test, labels_test)
     print("Evaluation Loss: ", score[0])
     print("Evaluation Accuracy: ", score[1])
