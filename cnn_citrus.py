@@ -6,56 +6,33 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 from sklearn.model_selection import KFold
-
-# Files
-from func_reader import *
-
-os_path = "cnn_mnist_weights"
+import tensorflow_datasets as tfds
+from tensorflow_datasets.core.utils import gcs_utils
 
 
-def load_data():
-    dataset_size = 60000
-    dataset_size_test = 10000
+gcs_utils._is_gcs_disabled = True
+os_path = "cnn_flowers_weights"
 
-    dataset_images_train = read_dataset_images_train(dataset_size)
-    dataset_labels_train = read_dataset_labels_train(dataset_size)
-    dataset_images_test = read_dataset_images_test(dataset_size_test)
-    dataset_labels_test = read_dataset_labels_test(dataset_size_test)
 
-    return (
-        dataset_images_train,
-        dataset_labels_train,
-        dataset_images_test,
-        dataset_labels_test,
+def load_prepare_data():
+    dataset, info = tfds.load(
+        "oxford_flowers102", shuffle_files=True, as_supervised=True, with_info=True
     )
 
+    dataset_train = dataset["train"].map(resize_normalize_image)
+    dataset_test = dataset["test"].map(resize_normalize_image)
 
-def visualize_data(images_train, labels_train):
-    classes = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
-
-    plt.figure(figsize=(10, 10))
-
-    for i in range(9):
-        plt.subplot(3, 3, i + 1)
-        plt.xticks([])
-        plt.yticks([])
-        plt.grid(False)
-        plt.imshow(tf.squeeze(images_train[i]))
-        plt.xlabel(classes[labels_train[i]])
-    plt.show()
+    return dataset_train, dataset_test
 
 
-def prepare_data():
-    dataset_images_train, labels_train, dataset_images_test, labels_test = load_data()
+def visualize_data(dataset_train, dataset_test):
+    fig = tfds.show_examples(dataset_train, dataset_test, rows=4, cols=4)
 
-    images_train = dataset_images_train.astype("float32") / 255
-    images_test = dataset_images_test.astype("float32") / 255
-    images_train = dataset_images_train.reshape(
-        dataset_images_train.shape[0], 28, 28, 1
-    )
-    images_test = dataset_images_test.reshape(dataset_images_test.shape[0], 28, 28, 1)
 
-    return images_train, labels_train, images_test, labels_test
+def resize_normalize_image(image, label):
+    image = tf.image.resize(image, (256, 256))
+    image = tf.cast(image, tf.float32) / 255.0
+    return image, label
 
 
 def create_cnn(num_classes, dim_layer):
@@ -100,10 +77,8 @@ def create_cnn(num_classes, dim_layer):
 
 def compile_and_fit(
     model,
-    images_train,
-    labels_train,
-    images_test,
-    labels_test,
+    dataset_train,
+    dataset_test,
     batch_size,
     epochs,
     num_classes,
@@ -114,18 +89,13 @@ def compile_and_fit(
     history_list = []
 
     num_folds = 3
-    kf = KFold(n_splits=num_folds, shuffle=True)
+    kf = KFold(n_splits=num_folds)
 
-    for fold, (train_index, val_index) in enumerate(kf.split(images_train)):
+    for fold, (train_index, val_index) in enumerate(kf.split(dataset_train)):
         print(f"Fold {fold + 1}/{num_folds}")
-        images_train_fold, images_val_fold = (
-            images_train[train_index],
-            images_train[val_index],
-        )
-        labels_train_fold, labels_val_fold = (
-            images_train[train_index],
-            labels_train[val_index],
-        )
+
+        train_dataset = dataset.take(train_index)
+        val_dataset = dataset.take(val_index)
 
         model = create_cnn(num_classes, dim_layer)
 
@@ -189,28 +159,26 @@ if __name__ == "__main__":
     for dim_layer in dim_layer_list:
         image_path = os.path.join(os_path, "plot" + str(dim_layer) + ".png")
 
-        num_classes = 10
+        num_classes = 102
         batch_size = 128
         epochs = 30
 
-        images_train, labels_train, images_test, labels_test = prepare_data()
-        # visualize_data(images_train, labels_train)
+        dataset_train, dataset_test = load_prepare_data()
 
+        print("\n\n dataset shape: ", type(dataset_train))
         cnn_model = create_cnn(num_classes, dim_layer)
 
         cnn_model, history = compile_and_fit(
             cnn_model,
-            images_train,
-            labels_train,
-            images_test,
-            labels_test,
+            dataset_train,
+            dataset_test,
             batch_size,
             epochs,
             num_classes,
             dim_layer,
         )
 
-        model_path = os.path.join(os_path, "mnist_model_" + str(dim_layer) + ".h5")
+        model_path = os.path.join(os_path, "flowers_model_" + str(dim_layer) + ".h5")
         cnn_model.save(model_path)
 
         plot_learning_curves(history, epochs, image_path, dim_layer)

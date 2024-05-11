@@ -3,6 +3,8 @@
 # Imports 
 import gzip
 import numpy as np
+import os
+import glob
 
 def read_dataset_images_train(num_images):
     image_dataset_train = gzip.open("./Dataset/train-images-idx3-ubyte.gz")
@@ -46,4 +48,17 @@ def read_dataset_labels_test(num_labels):
     labels = np.frombuffer(buffer, dtype=np.uint8)  # .astype(np.uint64)
 
     return labels
+
+def read_dataset_dog_all():
+    root_folder = './Dataset_Dog'
+
+    list_images = []
+    list_labels = []
+
+
+    for folder_name in os.listdir(root_folder):
+        folder_path = os.path.join(root_folder, folder_name)
+        label = folder_name.split("-")[1]
+
+
 
