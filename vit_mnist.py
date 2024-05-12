@@ -1,8 +1,16 @@
-# Projeto -> DeepVit Mnist
+# Projeto -> Vit Mnist
 
 # Imports
 import tensorflow as tf
-from vit import ViT
+from model.vision_transformer import create_vit_classifier
+import os
+from sklearn.model_selection import KFold
+import matplotlib.pyplot as plt
+
+from func_reader import *
+
+os_path = "vit_mnist_weights"
+
 
 def load_data():
     dataset_size = 60000
@@ -39,58 +47,125 @@ def prepare_data():
     images_train = dataset_images_train.reshape(dataset_images_train.shape[0], 28, 28, 1)
     images_test = dataset_images_test.reshape(dataset_images_test.shape[0], 28, 28, 1)
 
-    return images_train, labels_train , images_test, labels_test
+    input_shape = (images_train.shape[1], images_train.shape[2], images_train.shape[3])
 
-def create_vit(config):
-
-    model = ViT(config)
-    model.summary()
-    
-    return model
-
-def compile_and_fit(model, x_train, y_train, x_test, y_test, batch_size, epochs):
-    model.compile(optimizer=tf.keras.optimizers.Adam(0.001),
-                  loss=tf.keras.losses.sparse_categorical_crossentropy,
-                  metrics=['accuracy'])
-
-    history = model.fit(x_train, y_train,
-                        batch_size=batch_size,
-                        epochs=epochs,
-                        validation_data=(x_test,y_test),
-                        shuffle=True)
-
-    return model, history
+    return images_train, labels_train , images_test, labels_test, input_shape
 
 
+def compile_and_fit(
+    images_train,
+    labels_train,
+    images_test,
+    labels_test,
+    batch_size,
+    epochs,
+    num_patches,
+    size_patches
+):
+    accuracy_scores = []
+    fold_models = []
+    history_list = []
+
+    num_folds = 2
+    kf = KFold(n_splits=num_folds, shuffle=True)
+
+    for fold, (train_index, val_index) in enumerate(kf.split(images_train)):
+        print(f"Fold {fold + 1}/{num_folds}")
+        images_train_fold, images_val_fold = (
+            images_train[train_index],
+            images_train[val_index],
+        )
+        labels_train_fold, labels_val_fold = (
+            images_train[train_index],
+            labels_train[val_index],
+        )
+
+        model = create_vit_classifier([28, 28, 1], 10, 28, size_patches,num_patches, 256, 0.2, 2, 4, [512, 256,], [64])
+
+        model.compile(
+            optimizer=tf.keras.optimizers.Adam(0.005),
+            loss=tf.keras.losses.sparse_categorical_crossentropy,
+            metrics=["accuracy"],
+        )
+
+        history = model.fit(
+            images_train,
+            labels_train,
+            batch_size=batch_size,
+            epochs=epochs,
+            validation_data=(images_test, labels_test),
+            shuffle=True,
+        )
+        print(history.history)
+
+        _, val_acc = model.evaluate(images_val_fold, labels_val_fold)
+        accuracy_scores.append(val_acc)
+        fold_models.append(model)
+        history_list.append(history)
+
+    best_model_index = np.argmax(accuracy_scores)
+    best_model = fold_models[best_model_index]
+    best_history = history_list[best_model_index]
+
+    return best_model, best_history
+
+
+def plot_learning_curves(history, epochs, image_path):
+    acc = history.history["accuracy"]
+    val_acc = history.history["val_accuracy"]
+    loss = history.history["loss"]
+    val_loss = history.history["val_loss"]
+    epochs_range = range(epochs)
+
+    plt.figure(figsize=(8, 8))
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs_range, acc, label="Training Accuracy")
+    plt.plot(epochs_range, val_acc, label="Validation Accuracy")
+    plt.legend(loc="lower right")
+    plt.title("Training / Validation")
+
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs_range, loss, label="Training Loss")
+    plt.plot(epochs_range, val_loss, label="Validation Loss")
+    plt.legend(loc="upper right")
+    plt.title("Training / Validation Loss ")
+
+    plt.savefig(image_path)
 
 
 if __name__ == "__main__":
-    config = {}
-    config["num_layers"] = 5
-    config["hidden_dim"] = 64
-    config["mlp_dim"] = 128
-    config["num_heads"] = 4
-    config["dropout_rate"] = 0.1
-    config["num_patches"] = 49
-    config["patch_size"] = 4
-    config["num_channels"] = 1
 
-    batch_size=128
-    epochs=10
-    num_predictions=20
+    if not os.path.exists(os_path):
+        os.makedirs(os_path)
 
+    num_classes = 10
+    batch_size = 128
+    epochs = 10
 
-    x_train, y_train, x_test, y_test, classes = prepare_data()
-    vit_model = create_vit(config)
+    size_patches_list = [7, 4, 2]
 
-    patches_x_train = tf.image.extract_patches()
+    for size_patches in size_patches_list:
+        num_patches = (28 // size_patches) ** 2 
+        print("\nNumber of Patches: ", num_patches)
+        image_path = os.path.join(os_path, "plot" + str(num_patches) + ".png")
+        images_train, labels_train, images_test, labels_test, input_shape = prepare_data()
+        # visualize_data(images_train, labels_train)
 
-    vit_model, history = compile_and_fit(vit_model, x_train, y_train, x_test, y_test, batch_size, epochs)
+        vit_model, history = compile_and_fit(
+            images_train,
+            labels_train,
+            images_test,
+            labels_test,
+            batch_size,
+            epochs,
+            num_patches,
+            size_patches
+        )
 
-    score = vit_model.evaluate(x_test, y_test)
-    print('Evaluation: ', score[0])
-    print('Evaluation: ', score[1])
+        model_path = os.path.join(os_path, "mnist_model_" + str(num_patches) + ".h5")
+        vit_model.save(model_path)
 
+        plot_learning_curves(history, epochs, image_path)
 
 
 
