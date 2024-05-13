@@ -6,16 +6,14 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 from sklearn.model_selection import KFold
+from tensorflow.keras import layers, models, datasets
 
-# Files
-from func_reader import *
 
 os_path = "cnn_cifar100_weights"
 
 
 def load_data():
     (x_train, y_train), (x_test, y_test) = tf.keras.datasets.cifar100.load_data()
-    print("X Train: ", x_train.shape)
 
     return x_train, y_train, x_test, y_test
 
@@ -25,56 +23,24 @@ def prepare_data():
 
     images_train = dataset_images_train.astype("float32") / 255
     images_test = dataset_images_test.astype("float32") / 255
-    images_train = dataset_images_train.reshape(
-        dataset_images_train.shape[0], 32, 32, 3
-    )
-    images_test = dataset_images_test.reshape(dataset_images_test.shape[0], 32, 32, 3)
 
     return images_train, labels_train, images_test, labels_test
 
 
 def create_cnn(num_classes, dim_layer):
-    model = tf.keras.Sequential()
-
-    model.add(
-        tf.keras.layers.Conv2D(
-            dim_layer,
-            (3, 3),
-            (1, 1),
-            padding="same",
-            activation="relu",
-            input_shape=(32, 32, 3),
-        )
-    )
-    model.add(
-        tf.keras.layers.Conv2D(dim_layer, (3, 3), padding="same", activation="relu")
-    )
-    model.add(
-        tf.keras.layers.Conv2D(dim_layer, (3, 3), padding="same", activation="relu")
-    )
-    model.add(tf.keras.layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
-    model.add(tf.keras.layers.Dropout(0.25))
-
-    model.add(
-        tf.keras.layers.Conv2D(dim_layer, (3, 3), padding="same", activation="relu")
-    )
-    model.add(
-        tf.keras.layers.Conv2D(dim_layer, (3, 3), padding="same", activation="relu")
-    )
-    model.add(tf.keras.layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
-    model.add(tf.keras.layers.Dropout(0.25))
-
-    model.add(tf.keras.layers.Flatten())
-    model.add(tf.keras.layers.Dense(dim_layer, activation="relu"))
-    model.add(tf.keras.layers.Dropout(0.25))
-
-    model.add(tf.keras.layers.Dense(num_classes, activation="softmax"))
-
+    model = models.Sequential([
+    layers.Conv2D(dim_layer, (3, 3), activation='relu', input_shape=(32, 32, 3)),
+    layers.MaxPooling2D((2, 2)),
+    layers.Conv2D(dim_layer, (3, 3), activation='relu'),
+    layers.MaxPooling2D((2, 2)),
+    layers.Conv2D(dim_layer, (3, 3), activation='relu'),
+    layers.Flatten(),
+    layers.Dense(dim_layer, activation='relu'),
+    layers.Dense(100, activation='softmax')
+    ])
     return model
 
-
 def compile_and_fit(
-    model,
     images_train,
     labels_train,
     images_test,
@@ -98,7 +64,7 @@ def compile_and_fit(
             images_train[val_index],
         )
         labels_train_fold, labels_val_fold = (
-            images_train[train_index],
+            labels_train[train_index],
             labels_train[val_index],
         )
 
@@ -158,23 +124,23 @@ if __name__ == "__main__":
     if not os.path.exists(os_path):
         os.makedirs(os_path)
 
-    dim_layer_list = [8, 16, 32, 64]
+    dim_layer_list = [8, 16, 32]
 
     for dim_layer in dim_layer_list:
         print("Dim Layer: ", dim_layer)
         image_path = os.path.join(os_path, "plot" + str(dim_layer) + ".png")
 
         num_classes = 100
-        batch_size = 16
+        batch_size = 32
         epochs = 30
 
         images_train, labels_train, images_test, labels_test = prepare_data()
         # visualize_data(images_train, labels_train)
 
-        cnn_model = create_cnn(num_classes, dim_layer)
+        cnn = create_cnn(num_classes, dim_layer)
+        cnn.summary()
 
         cnn_model, history = compile_and_fit(
-            cnn_model,
             images_train,
             labels_train,
             images_test,

@@ -103,14 +103,8 @@ class TransformerEncoder(Layer):
 def create_VisionTransformer(num_classes, num_patches=196, projection_dim=768, input_shape=(224, 224, 3)):
     inputs = Input(shape=input_shape)
 
-    print("\nINPUT PASS: ", inputs.shape)
-    print("")
-
     # Patch extractor
     patches = PatchExtractor()(inputs)
-
-    print("\nPATCHES PASS: ", patches.shape)
-    print("")
 
     # Patch encoder
     patches_embed = PatchEncoder(num_patches, projection_dim)(patches)

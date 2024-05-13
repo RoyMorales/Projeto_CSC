@@ -12,14 +12,8 @@ from func_reader import *
 os_path = "vit_mnist_weights"
 
 
-def load_data():
-    dataset_size = 60000
-    dataset_size_test = 10000
-
-    dataset_images_train = read_dataset_images_train(dataset_size)
-    dataset_labels_train = read_dataset_labels_train(dataset_size)
-    dataset_images_test = read_dataset_images_test(dataset_size_test)
-    dataset_labels_test = read_dataset_labels_test(dataset_size_test)
+def load_data(): 
+    (dataset_images_train, dataset_labels_train), (dataset_images_test, dataset_labels_test) = tf.keras.datasets.mnist.load_data()
 
     return dataset_images_train, dataset_labels_train, dataset_images_test, dataset_labels_test
 
@@ -44,10 +38,6 @@ def prepare_data():
 
     images_train = dataset_images_train.astype("float32") / 255
     images_test = dataset_images_test.astype("float32") / 255
-    images_train = dataset_images_train.reshape(dataset_images_train.shape[0], 28, 28, 1)
-    images_test = dataset_images_test.reshape(dataset_images_test.shape[0], 28, 28, 1)
-
-    input_shape = (images_train.shape[1], images_train.shape[2], images_train.shape[3])
 
     return images_train, labels_train , images_test, labels_test, input_shape
 
@@ -76,11 +66,21 @@ def compile_and_fit(
             images_train[val_index],
         )
         labels_train_fold, labels_val_fold = (
-            images_train[train_index],
+            labels_train[train_index],
             labels_train[val_index],
         )
 
-        model = create_vit_classifier([28, 28, 1], 10, 28, size_patches,num_patches, 256, 0.2, 2, 4, [512, 256,], [64])
+        model = create_vit_classifier(input_shape=[28, 28, 1],
+                                      num_classes=10,
+                                      image_size=28,
+                                      patch_size=size_patches,
+                                      num_patches=num_patches,
+                                      projection_dim=256,
+                                      dropout=0.2,
+                                      n_transformer_layers=1,
+                                      num_heads=4,
+                                      transformer_units=[512, 256,],
+                                      mlp_head_units=[64])
 
         model.compile(
             optimizer=tf.keras.optimizers.Adam(0.005),
@@ -139,7 +139,7 @@ if __name__ == "__main__":
         os.makedirs(os_path)
 
     num_classes = 10
-    batch_size = 128
+    batch_size = 64
     epochs = 10
 
     size_patches_list = [7, 4, 2]

@@ -6,22 +6,15 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 from sklearn.model_selection import KFold
+from tensorflow.keras import layers, models, datasets
 
-# Files
-from func_reader import *
 
 os_path = "cnn_mnist_weights"
 
 
 def load_data():
-    dataset_size = 60000
-    dataset_size_test = 10000
 
-    dataset_images_train = read_dataset_images_train(dataset_size)
-    dataset_labels_train = read_dataset_labels_train(dataset_size)
-    dataset_images_test = read_dataset_images_test(dataset_size_test)
-    dataset_labels_test = read_dataset_labels_test(dataset_size_test)
-
+    (dataset_images_train, dataset_labels_train), (dataset_images_test, dataset_labels_test) = tf.keras.datasets.mnist.load_data()
     return (
         dataset_images_train,
         dataset_labels_train,
@@ -50,56 +43,26 @@ def prepare_data():
 
     images_train = dataset_images_train.astype("float32") / 255
     images_test = dataset_images_test.astype("float32") / 255
-    images_train = dataset_images_train.reshape(
-        dataset_images_train.shape[0], 28, 28, 1
-    )
-    images_test = dataset_images_test.reshape(dataset_images_test.shape[0], 28, 28, 1)
 
     return images_train, labels_train, images_test, labels_test
 
 
 def create_cnn(num_classes, dim_layer):
-    model = tf.keras.Sequential()
-
-    model.add(
-        tf.keras.layers.Conv2D(
-            dim_layer,
-            (3, 3),
-            (1, 1),
-            padding="same",
-            activation="relu",
-            input_shape=(28, 28, 1),
-        )
-    )
-    model.add(
-        tf.keras.layers.Conv2D(dim_layer, (3, 3), padding="same", activation="relu")
-    )
-    model.add(
-        tf.keras.layers.Conv2D(dim_layer, (3, 3), padding="same", activation="relu")
-    )
-    model.add(tf.keras.layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
-    model.add(tf.keras.layers.Dropout(0.25))
-
-    model.add(
-        tf.keras.layers.Conv2D(dim_layer, (3, 3), padding="same", activation="relu")
-    )
-    model.add(
-        tf.keras.layers.Conv2D(dim_layer, (3, 3), padding="same", activation="relu")
-    )
-    model.add(tf.keras.layers.MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
-    model.add(tf.keras.layers.Dropout(0.25))
-
-    model.add(tf.keras.layers.Flatten())
-    model.add(tf.keras.layers.Dense(dim_layer, activation="relu"))
-    model.add(tf.keras.layers.Dropout(0.25))
-
-    model.add(tf.keras.layers.Dense(num_classes, activation="softmax"))
+    model = models.Sequential([
+    layers.Conv2D(dim_layer, (3, 3), activation='relu', input_shape=(28, 28, 1)),
+    layers.MaxPooling2D((2, 2)),
+    layers.Conv2D(dim_layer, (3, 3), activation='relu'),
+    layers.MaxPooling2D((2, 2)),
+    layers.Conv2D(dim_layer, (3, 3), activation='relu'),
+    layers.Flatten(),
+    layers.Dense(dim_layer, activation='relu'),
+    layers.Dense(10, activation='softmax')
+])
 
     return model
 
 
 def compile_and_fit(
-    model,
     images_train,
     labels_train,
     images_test,
@@ -113,7 +76,7 @@ def compile_and_fit(
     fold_models = []
     history_list = []
 
-    num_folds = 3
+    num_folds = 2
     kf = KFold(n_splits=num_folds, shuffle=True)
 
     for fold, (train_index, val_index) in enumerate(kf.split(images_train)):
@@ -123,7 +86,7 @@ def compile_and_fit(
             images_train[val_index],
         )
         labels_train_fold, labels_val_fold = (
-            images_train[train_index],
+            labels_train[train_index],
             labels_train[val_index],
         )
 
@@ -143,7 +106,6 @@ def compile_and_fit(
             validation_data=(images_test, labels_test),
             shuffle=True,
         )
-        print(history.history)
 
         _, val_acc = model.evaluate(images_val_fold, labels_val_fold)
         accuracy_scores.append(val_acc)
@@ -184,7 +146,7 @@ if __name__ == "__main__":
     if not os.path.exists(os_path):
         os.makedirs(os_path)
 
-    dim_layer_list = [8, 16, 32, 64]
+    dim_layer_list = [8, 16, 32]
 
     for dim_layer in dim_layer_list:
         image_path = os.path.join(os_path, "plot" + str(dim_layer) + ".png")
@@ -196,10 +158,7 @@ if __name__ == "__main__":
         images_train, labels_train, images_test, labels_test = prepare_data()
         # visualize_data(images_train, labels_train)
 
-        cnn_model = create_cnn(num_classes, dim_layer)
-
         cnn_model, history = compile_and_fit(
-            cnn_model,
             images_train,
             labels_train,
             images_test,
