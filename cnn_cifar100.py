@@ -35,7 +35,7 @@ def create_cnn(num_classes, dim_layer):
     layers.MaxPooling2D((2, 2)),
     layers.Conv2D(dim_layer, (3, 3), activation='relu'),
     layers.Flatten(),
-    layers.Dense(dim_layer, activation='relu'),
+    layers.Dense(64, activation='relu'),
     layers.Dense(100, activation='softmax')
     ])
     return model
@@ -124,14 +124,14 @@ if __name__ == "__main__":
     if not os.path.exists(os_path):
         os.makedirs(os_path)
 
-    dim_layer_list = [8, 16, 32]
+    dim_layer_list = [32]
 
     for dim_layer in dim_layer_list:
         print("Dim Layer: ", dim_layer)
         image_path = os.path.join(os_path, "plot" + str(dim_layer) + ".png")
 
         num_classes = 100
-        batch_size = 32
+        batch_size = 16
         epochs = 30
 
         images_train, labels_train, images_test, labels_test = prepare_data()

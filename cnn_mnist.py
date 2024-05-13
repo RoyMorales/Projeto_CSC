@@ -55,9 +55,10 @@ def create_cnn(num_classes, dim_layer):
     layers.MaxPooling2D((2, 2)),
     layers.Conv2D(dim_layer, (3, 3), activation='relu'),
     layers.Flatten(),
-    layers.Dense(dim_layer, activation='relu'),
+    layers.Dense(64, activation='relu'),
     layers.Dense(10, activation='softmax')
 ])
+    model.summary()
 
     return model
 

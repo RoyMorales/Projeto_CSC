@@ -6,8 +6,8 @@ from model.vision_transformer import create_vit_classifier
 import os
 from sklearn.model_selection import KFold
 import matplotlib.pyplot as plt
+from tensorflow.keras import layers, models, datasets
 
-from func_reader import *
 
 os_path = "vit_mnist_weights"
 
@@ -39,7 +39,7 @@ def prepare_data():
     images_train = dataset_images_train.astype("float32") / 255
     images_test = dataset_images_test.astype("float32") / 255
 
-    return images_train, labels_train , images_test, labels_test, input_shape
+    return images_train, labels_train , images_test, labels_test
 
 
 def compile_and_fit(
@@ -148,7 +148,7 @@ if __name__ == "__main__":
         num_patches = (28 // size_patches) ** 2 
         print("\nNumber of Patches: ", num_patches)
         image_path = os.path.join(os_path, "plot" + str(num_patches) + ".png")
-        images_train, labels_train, images_test, labels_test, input_shape = prepare_data()
+        images_train, labels_train, images_test, labels_test = prepare_data()
         # visualize_data(images_train, labels_train)
 
         vit_model, history = compile_and_fit(
